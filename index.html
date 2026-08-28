@@ -12,7 +12,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
-    /* Floating action button pulse animation */
     @keyframes pulse-subtle {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.04); }
@@ -23,6 +22,37 @@
   </style>
 </head>
 <body class="bg-gray-100 text-gray-900 pb-28">
+
+  <!-- Fullscreen Activation Paywall Modal (Shows until valid key is activated) -->
+  <div id="activationLockOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4 border border-slate-100 text-center">
+      <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-inner">
+        🔒
+      </div>
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Activate RJ Med Inventory</h2>
+        <p class="text-xs text-gray-500 mt-1 leading-relaxed">Enter your unique 1-Time Lifetime Activation Key to unlock the application on this device.</p>
+      </div>
+
+      <div class="space-y-3 text-left">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">License Key</label>
+          <input type="text" id="licenseKeyInput" placeholder="e.g. RJMED-PRO-101" class="w-full border border-gray-300 rounded-xl p-3 text-center uppercase tracking-widest font-mono font-bold text-base bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div id="activationErrorMsg" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-100 font-medium text-center"></div>
+
+        <button id="activateBtn" onclick="verifyAndActivateLicense()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+          <span id="activateBtnSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+          <span id="activateBtnText">Unlock Lifetime Access</span>
+        </button>
+      </div>
+
+      <div class="pt-2 border-t border-gray-100 text-[11px] text-gray-400">
+        100% Offline & Private after one-time verification.
+      </div>
+    </div>
+  </div>
 
   <!-- Header -->
   <header class="bg-blue-600 text-white px-4 py-3.5 sticky top-0 z-30 shadow-md flex justify-between items-center">
@@ -150,7 +180,6 @@
           </div>
           <div>
             <label class="block font-semibold mb-1 text-gray-700" id="expiryLabel">Expiry (MM/YYYY) *</label>
-            <!-- Month Picker for easy indexing -->
             <input type="month" id="expiryMonth" class="w-full border border-gray-300 rounded-xl p-2.5 bg-gray-50 focus:bg-white outline-none">
             <span id="homeoExpHint" class="text-[10px] text-gray-400 hidden">Optional for Homeopathy</span>
           </div>
@@ -204,12 +233,79 @@
   </div>
 
   <script>
+    // Validation Worker Endpoint
+    const WORKER_ACTIVATION_URL = "https://rj-medlicense-validator.rehanj4.workers.dev";
+
     let inventory = JSON.parse(localStorage.getItem('rj_med_inventory') || '[]');
     let manualRefills = JSON.parse(localStorage.getItem('rj_manual_refills') || '{}');
-    let pinnedFreqMeds = JSON.parse(localStorage.getItem('rj_pinned_freq_meds') || '{}'); // Key: medKey -> boolean
+    let pinnedFreqMeds = JSON.parse(localStorage.getItem('rj_pinned_freq_meds') || '{}');
     let currentFilter = 'all';
 
-    // Toggle Export Dropdown
+    // Device ID & License Management
+    function getOrCreateDeviceId() {
+      let devId = localStorage.getItem('rj_device_id');
+      if (!devId) {
+        devId = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+        localStorage.setItem('rj_device_id', devId);
+      }
+      return devId;
+    }
+
+    function checkActivationStatus() {
+      const isActivated = localStorage.getItem('rj_is_activated') === 'true';
+      const overlay = document.getElementById('activationLockOverlay');
+      if (isActivated) {
+        overlay.classList.add('hidden');
+      } else {
+        overlay.classList.remove('hidden');
+      }
+    }
+
+    async function verifyAndActivateLicense() {
+      const input = document.getElementById('licenseKeyInput');
+      const errorDiv = document.getElementById('activationErrorMsg');
+      const btnSpinner = document.getElementById('activateBtnSpinner');
+      const btnText = document.getElementById('activateBtnText');
+      const key = input.value.trim().toUpperCase();
+
+      if (!key) {
+        errorDiv.innerText = "Please enter a valid license key.";
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+
+      errorDiv.classList.add('hidden');
+      btnSpinner.classList.remove('hidden');
+      btnText.innerText = "Verifying...";
+
+      try {
+        const deviceId = getOrCreateDeviceId();
+        const res = await fetch(WORKER_ACTIVATION_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ licenseKey: key, deviceId: deviceId })
+        });
+
+        const data = await res.json();
+
+        if (data.valid) {
+          localStorage.setItem('rj_is_activated', 'true');
+          localStorage.setItem('rj_active_key', key);
+          checkActivationStatus();
+          alert("🎉 App successfully unlocked for lifetime access on this device!");
+        } else {
+          errorDiv.innerText = data.message || "Invalid license key.";
+          errorDiv.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorDiv.innerText = "Connection error. Please check your internet connection and try again.";
+        errorDiv.classList.remove('hidden');
+      } finally {
+        btnSpinner.classList.add('hidden');
+        btnText.innerText = "Unlock Lifetime Access";
+      }
+    }
+
     function toggleExportMenu(e) {
       e.stopPropagation();
       const menu = document.getElementById('exportMenu');
@@ -423,7 +519,6 @@
       saveToStorage();
     }
 
-    // Toggle Pin as Frequent Medicine
     function togglePinFreq(medKey, e) {
       if (e) e.stopPropagation();
       pinnedFreqMeds[medKey] = !pinnedFreqMeds[medKey];
@@ -518,7 +613,6 @@
       const grouped = getGroupedMedicines();
       const today = new Date();
 
-      // Count Refills & Frequent items for tab badges
       const totalRefillCount = grouped.filter(g => isGroupInRefill(g)).length;
       const refillBadge = document.getElementById('refillBadgeCount');
       if (refillBadge) {
@@ -547,7 +641,6 @@
         displayGroups = displayGroups.filter(g => g.name.toLowerCase().includes(searchQuery));
       }
 
-      // Filter logic
       if (currentFilter === 'freq') {
         displayGroups = displayGroups.filter(g => !!pinnedFreqMeds[g.key]);
       } else if (currentFilter === 'refill') {
@@ -677,12 +770,12 @@
             ${batchesHTML}
           </div>
 
-          <!-- Bottom Action: Refill Toggle Switch at will -->
+          <!-- Bottom Actions: Refill Switch -->
           <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-100 text-xs">
             <span class="text-gray-600 font-medium flex items-center">
               🏥 Bring from Pharmacy:
             </span>
-            <button onclick="toggleManualRefill('${group.key}')" class="px-3 py-1 rounded-lg font-semibold flex items-center space-x-1.5 transition ${isRefillActive ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+            <button onclick="toggleManualRefill('${group.key}')" class="px-2.5 py-1 rounded-lg font-semibold flex items-center space-x-1 transition ${isRefillActive ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
               <span>${isRefillActive ? '✓ Added to Refill List' : '+ Add to Refill List'}</span>
             </button>
           </div>
@@ -691,7 +784,6 @@
       });
     }
 
-    // Export to Excel (.xlsx) with clean layout
     function exportToExcel() {
       if (inventory.length === 0) {
         alert("Inventory is empty. Add some medicines first!");
@@ -701,7 +793,6 @@
       const today = new Date();
       const grouped = getGroupedMedicines();
 
-      // 1. All Medicines Detailed List
       const allRows = [];
       inventory.forEach(item => {
         const medKey = `${item.name.toLowerCase()}__${item.category}`;
@@ -733,7 +824,6 @@
         });
       });
 
-      // 2. Pharmacy Refill Checklist Sheet
       const refillRows = [];
       grouped.filter(g => isGroupInRefill(g)).forEach(g => {
         refillRows.push({
@@ -783,6 +873,8 @@
       downloadAnchor.remove();
     }
 
+    // Initialize check
+    checkActivationStatus();
     render();
   </script>
 </body>
