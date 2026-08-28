@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RJ Meds">
+  <title>RJ Med Inventory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS library for direct client-side Excel (.xlsx) export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    /* Floating action button pulse animation */
+    @keyframes pulse-subtle {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .fab-btn {
+      animation: pulse-subtle 3s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 pb-28">
+
+  <!-- Header -->
+  <header class="bg-blue-600 text-white px-4 py-3.5 sticky top-0 z-30 shadow-md flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold tracking-tight whitespace-nowrap">💊 RJ Med Inventory</h1>
+      <p class="text-[10px] text-blue-100 uppercase tracking-wider font-semibold">Personal Medicine Batch Tracker</p>
+    </div>
+    
+    <!-- Export Dropdown Trigger -->
+    <div class="relative">
+      <button id="downloadDropdownBtn" onclick="toggleExportMenu(event)" class="bg-blue-700/80 hover:bg-blue-800 active:bg-blue-900 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm border border-blue-500/30">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        <span>Export</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-70" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      </button>
+
+      <!-- Dropdown Menu -->
+      <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl py-2 z-50 border border-gray-100 text-gray-800 text-xs">
+        <button onclick="exportToExcel(); closeExportMenu();" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 flex items-center space-x-2.5 text-emerald-700 font-semibold border-b border-gray-100">
+          <span class="text-base">📊</span>
+          <div>
+            <div>Excel Sheet (.xlsx)</div>
+            <div class="text-[10px] text-gray-400 font-normal">Full list + Refill sheet</div>
+          </div>
+        </button>
+        <button onclick="exportJSONBackup(); closeExportMenu();" class="w-full text-left px-4 py-2.5 hover:bg-blue-50 flex items-center space-x-2.5 text-blue-700 font-semibold">
+          <span class="text-base">💾</span>
+          <div>
+            <div>JSON Raw Backup</div>
+            <div class="text-[10px] text-gray-400 font-normal">Full database restore format</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Search & Filter Tab Bar -->
+  <div class="bg-white border-b sticky top-[62px] z-20 shadow-sm">
+    <!-- Search Bar -->
+    <div class="px-3 pt-2.5 pb-1">
+      <input type="text" id="searchInput" oninput="render()" placeholder="🔍 Quick search medicine..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-500">
+    </div>
+    
+    <!-- Tab Bar -->
+    <div class="p-3 pt-1.5 flex space-x-2 overflow-x-auto text-sm">
+      <button onclick="setFilter('all')" id="tab-all" class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-medium whitespace-nowrap shadow-sm">All (A-Z)</button>
+      <button onclick="setFilter('freq')" id="tab-freq" class="px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap flex items-center space-x-1">
+        <span>⭐ Freq. Med</span>
+        <span id="freqBadgeCount" class="ml-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full hidden">0</span>
+      </button>
+      <button onclick="setFilter('refill')" id="tab-refill" class="px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap">
+        ⚠️ Refill List 
+        <span id="refillBadgeCount" class="ml-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full hidden">0</span>
+      </button>
+      <button onclick="setFilter('Allopathy')" id="tab-Allopathy" class="px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap">Allopathy</button>
+      <button onclick="setFilter('Homeopathy')" id="tab-Homeopathy" class="px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap">Homeopathy</button>
+      <button onclick="setFilter('Ayurvedic')" id="tab-Ayurvedic" class="px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap">Ayurvedic</button>
+    </div>
+  </div>
+
+  <!-- Medicine List -->
+  <main class="p-3 max-w-lg mx-auto" id="medicineList">
+    <!-- Alphabetically sorted medicine cards will render here -->
+  </main>
+
+  <!-- Large Highlighted Floating Action Button (FAB) for Adding Medicine -->
+  <div class="fixed bottom-6 right-6 z-40">
+    <button onclick="openAddModal()" class="fab-btn w-16 h-16 bg-red-600 hover:bg-red-700 active:scale-90 text-white rounded-full flex items-center justify-center shadow-2xl shadow-red-500/50 border-4 border-white transition focus:outline-none">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Add / Edit Medicine Modal -->
+  <div id="medModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 space-y-3 max-h-[92vh] overflow-y-auto shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h2 id="modalTitle" class="text-lg font-bold text-gray-800">Add New Medicine</h2>
+          <p id="modalSubtitle" class="text-xs text-gray-500">Same name will link batches together</p>
+        </div>
+        <button onclick="toggleModal(false)" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+      </div>
+
+      <form id="medForm" onsubmit="saveMedicineForm(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="editEntryId" value="">
+
+        <!-- Medicine Name -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">Medicine Name *</label>
+          <input type="text" id="name" required class="w-full border border-gray-300 rounded-xl p-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Paracetamol / Arnica 30C">
+        </div>
+
+        <!-- Category & Unit Type Dropdown -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700">Category *</label>
+            <select id="category" onchange="handleCategoryAndUnitChange()" class="w-full border border-gray-300 rounded-xl p-2.5 bg-gray-50 focus:bg-white outline-none">
+              <option value="Allopathy">Allopathy</option>
+              <option value="Homeopathy">Homeopathy</option>
+              <option value="Ayurvedic">Ayurvedic</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700">Unit Type *</label>
+            <select id="unitType" onchange="handleCategoryAndUnitChange()" class="w-full border border-gray-300 rounded-xl p-2.5 bg-gray-50 focus:bg-white outline-none">
+              <option value="Tablets">Tablets (Strips)</option>
+              <option value="Bottles">Bottles (Syrup/Dilution)</option>
+              <option value="Tubes">Tubes / Ointment</option>
+              <option value="Sachets">Sachets / Powder</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Batch & Month-Year Expiry -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700">Batch No.</label>
+            <input type="text" id="batch" class="w-full border border-gray-300 rounded-xl p-2.5 bg-gray-50 focus:bg-white outline-none" placeholder="Optional">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700" id="expiryLabel">Expiry (MM/YYYY) *</label>
+            <!-- Month Picker for easy indexing -->
+            <input type="month" id="expiryMonth" class="w-full border border-gray-300 rounded-xl p-2.5 bg-gray-50 focus:bg-white outline-none">
+            <span id="homeoExpHint" class="text-[10px] text-gray-400 hidden">Optional for Homeopathy</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Quantity Fields based on Unit Type -->
+        <div id="tabletQtyFields" class="bg-blue-50/70 p-3 rounded-xl border border-blue-100 space-y-2">
+          <div class="text-xs font-bold text-blue-800 uppercase tracking-wider">Strip Calculation</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Total Strips *</label>
+              <input type="number" id="numStrips" min="1" value="1" oninput="calculateTotalTablets()" class="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none font-semibold">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Tablets in 1 Strip *</label>
+              <input type="number" id="tabsPerStrip" min="1" value="10" oninput="calculateTotalTablets()" class="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none font-semibold">
+            </div>
+          </div>
+          <div class="flex justify-between items-center text-xs text-blue-900 font-medium">
+            <span>Direct Count Override (Optional):</span>
+            <input type="number" id="manualTabletOverride" placeholder="Auto" oninput="overrideTabletCount(this.value)" class="w-20 border border-blue-200 rounded px-1.5 py-0.5 text-right bg-white text-xs">
+          </div>
+          <div class="text-xs text-blue-900 font-medium text-right">
+            Total Tablets in Batch: <span id="calculatedTotalDisplay" class="font-bold text-sm text-blue-600">10</span>
+          </div>
+        </div>
+
+        <div id="bottleQtyFields" class="hidden bg-gray-50 p-3 rounded-xl border border-gray-200">
+          <label class="block font-semibold mb-1 text-gray-700">Number of Bottles / Units *</label>
+          <input type="number" id="directQty" min="0" value="1" class="w-full border border-gray-300 rounded-xl p-2.5 bg-white outline-none font-semibold" placeholder="e.g. 1">
+          <p class="text-[11px] text-gray-500 mt-1">💡 Refill triggers for bottles can be turned ON/OFF with the switch on the card.</p>
+        </div>
+
+        <!-- Alert Thresholds -->
+        <div id="thresholdConfigSection" class="grid grid-cols-2 gap-2 pt-1">
+          <div id="stockThresholdDiv">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Stock Alert (≤)</label>
+            <input type="number" id="minQty" value="10" class="w-full border border-gray-300 rounded-xl p-2 bg-gray-50 outline-none text-sm">
+            <span class="text-[10px] text-gray-400">Trigger if total tabs ≤ this</span>
+          </div>
+          <div id="expiryThresholdDiv">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Expiry Alert (Days)</label>
+            <input type="number" id="expiryAlertDays" value="60" class="w-full border border-gray-300 rounded-xl p-2 bg-gray-50 outline-none text-sm">
+            <span class="text-[10px] text-gray-400">Trigger if exp ≤ days</span>
+          </div>
+        </div>
+
+        <button type="submit" id="modalSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3 rounded-xl shadow-lg mt-2 transition">Save Medicine</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let inventory = JSON.parse(localStorage.getItem('rj_med_inventory') || '[]');
+    let manualRefills = JSON.parse(localStorage.getItem('rj_manual_refills') || '{}');
+    let pinnedFreqMeds = JSON.parse(localStorage.getItem('rj_pinned_freq_meds') || '{}'); // Key: medKey -> boolean
+    let currentFilter = 'all';
+
+    // Toggle Export Dropdown
+    function toggleExportMenu(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('exportMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function closeExportMenu() {
+      document.getElementById('exportMenu').classList.add('hidden');
+    }
+
+    document.addEventListener('click', () => {
+      closeExportMenu();
+    });
+
+    function handleCategoryAndUnitChange() {
+      const category = document.getElementById('category').value;
+      const unitType = document.getElementById('unitType').value;
+      const expiryMonth = document.getElementById('expiryMonth');
+      const expiryLabel = document.getElementById('expiryLabel');
+      const homeoExpHint = document.getElementById('homeoExpHint');
+      const tabletFields = document.getElementById('tabletQtyFields');
+      const bottleFields = document.getElementById('bottleQtyFields');
+      const stockThresholdDiv = document.getElementById('stockThresholdDiv');
+
+      if (category === 'Homeopathy') {
+        expiryMonth.required = false;
+        expiryLabel.innerText = "Expiry (MM/YYYY) (Optional)";
+        homeoExpHint.classList.remove('hidden');
+      } else {
+        expiryMonth.required = true;
+        expiryLabel.innerText = "Expiry (MM/YYYY) *";
+        homeoExpHint.classList.add('hidden');
+      }
+
+      if (unitType === 'Tablets') {
+        tabletFields.classList.remove('hidden');
+        bottleFields.classList.add('hidden');
+        stockThresholdDiv.classList.remove('hidden');
+        calculateTotalTablets();
+      } else {
+        tabletFields.classList.add('hidden');
+        bottleFields.classList.remove('hidden');
+        stockThresholdDiv.classList.add('hidden');
+      }
+    }
+
+    function calculateTotalTablets() {
+      const manualVal = document.getElementById('manualTabletOverride').value;
+      if (manualVal !== "") {
+        document.getElementById('calculatedTotalDisplay').innerText = manualVal;
+        return;
+      }
+      const strips = parseInt(document.getElementById('numStrips').value) || 0;
+      const perStrip = parseInt(document.getElementById('tabsPerStrip').value) || 0;
+      const total = strips * perStrip;
+      document.getElementById('calculatedTotalDisplay').innerText = total;
+    }
+
+    function overrideTabletCount(val) {
+      if (val !== "") {
+        document.getElementById('calculatedTotalDisplay').innerText = val;
+      } else {
+        calculateTotalTablets();
+      }
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('rj_med_inventory', JSON.stringify(inventory));
+      localStorage.setItem('rj_manual_refills', JSON.stringify(manualRefills));
+      localStorage.setItem('rj_pinned_freq_meds', JSON.stringify(pinnedFreqMeds));
+      render();
+    }
+
+    function toggleModal(show) {
+      document.getElementById('medModal').classList.toggle('hidden', !show);
+    }
+
+    function openAddModal() {
+      document.getElementById('medForm').reset();
+      document.getElementById('editEntryId').value = "";
+      document.getElementById('manualTabletOverride').value = "";
+      document.getElementById('modalTitle').innerText = "Add New Medicine";
+      document.getElementById('modalSubtitle').innerText = "Fill batch details to add to inventory";
+      document.getElementById('modalSubmitBtn').innerText = "Save to Inventory";
+      handleCategoryAndUnitChange();
+      toggleModal(true);
+    }
+
+    function openEditModal(entryId) {
+      const item = inventory.find(i => i.id === entryId);
+      if (!item) return;
+
+      document.getElementById('editEntryId').value = item.id;
+      document.getElementById('name').value = item.name;
+      document.getElementById('category').value = item.category;
+      document.getElementById('unitType').value = item.unitType;
+      document.getElementById('batch').value = item.batch || '';
+      document.getElementById('minQty').value = item.minQty || 0;
+      document.getElementById('expiryAlertDays').value = item.expiryAlertDays || 60;
+
+      if (item.expiry) {
+        document.getElementById('expiryMonth').value = item.expiry.substring(0, 7);
+      } else {
+        document.getElementById('expiryMonth').value = '';
+      }
+
+      if (item.unitType === 'Tablets') {
+        document.getElementById('numStrips').value = item.strips || 1;
+        document.getElementById('tabsPerStrip').value = item.tabsPerStrip || 10;
+        document.getElementById('manualTabletOverride').value = item.qty;
+        document.getElementById('calculatedTotalDisplay').innerText = item.qty;
+      } else {
+        document.getElementById('directQty').value = item.qty;
+      }
+
+      document.getElementById('modalTitle').innerText = "Edit Medicine Details";
+      document.getElementById('modalSubtitle').innerText = `Modifying: ${item.name} (Batch: ${item.batch})`;
+      document.getElementById('modalSubmitBtn').innerText = "Update Medicine";
+
+      handleCategoryAndUnitChange();
+      toggleModal(true);
+    }
+
+    function saveMedicineForm(e) {
+      e.preventDefault();
+      const editId = document.getElementById('editEntryId').value;
+      const unitType = document.getElementById('unitType').value;
+      const category = document.getElementById('category').value;
+      const monthVal = document.getElementById('expiryMonth').value;
+
+      let standardExpiry = null;
+      if (monthVal) {
+        standardExpiry = `${monthVal}-01`;
+      }
+
+      let totalUnits = 0;
+      let stripsCount = null;
+      let perStripCount = null;
+
+      if (unitType === 'Tablets') {
+        const manualVal = document.getElementById('manualTabletOverride').value;
+        stripsCount = parseInt(document.getElementById('numStrips').value) || 0;
+        perStripCount = parseInt(document.getElementById('tabsPerStrip').value) || 0;
+        if (manualVal !== "") {
+          totalUnits = parseInt(manualVal) || 0;
+        } else {
+          totalUnits = stripsCount * perStripCount;
+        }
+      } else {
+        totalUnits = parseInt(document.getElementById('directQty').value) || 0;
+      }
+
+      const medicineName = document.getElementById('name').value.trim();
+      const batchNo = document.getElementById('batch').value.trim() || 'Default';
+      const minQtyVal = parseInt(document.getElementById('minQty').value) || 0;
+      const expiryAlertVal = parseInt(document.getElementById('expiryAlertDays').value) || 60;
+
+      if (editId) {
+        const idx = inventory.findIndex(i => i.id == editId);
+        if (idx !== -1) {
+          inventory[idx].name = medicineName;
+          inventory[idx].category = category;
+          inventory[idx].unitType = unitType;
+          inventory[idx].batch = batchNo;
+          inventory[idx].qty = totalUnits;
+          inventory[idx].strips = stripsCount;
+          inventory[idx].tabsPerStrip = perStripCount;
+          inventory[idx].expiry = standardExpiry;
+          inventory[idx].minQty = minQtyVal;
+          inventory[idx].expiryAlertDays = expiryAlertVal;
+        }
+      } else {
+        const newEntry = {
+          id: Date.now(),
+          name: medicineName,
+          category: category,
+          unitType: unitType,
+          batch: batchNo,
+          qty: totalUnits,
+          strips: stripsCount,
+          tabsPerStrip: perStripCount,
+          expiry: standardExpiry,
+          minQty: minQtyVal,
+          expiryAlertDays: expiryAlertVal
+        };
+        inventory.unshift(newEntry);
+      }
+
+      saveToStorage();
+      document.getElementById('medForm').reset();
+      toggleModal(false);
+    }
+
+    function updateBatchQty(batchId, delta) {
+      const item = inventory.find(b => b.id === batchId);
+      if (item) {
+        item.qty = Math.max(0, item.qty + delta);
+        saveToStorage();
+      }
+    }
+
+    function deleteBatch(batchId) {
+      if (confirm("Delete this batch entry?")) {
+        inventory = inventory.filter(b => b.id !== batchId);
+        saveToStorage();
+      }
+    }
+
+    function toggleManualRefill(medKey) {
+      manualRefills[medKey] = !manualRefills[medKey];
+      saveToStorage();
+    }
+
+    // Toggle Pin as Frequent Medicine
+    function togglePinFreq(medKey, e) {
+      if (e) e.stopPropagation();
+      pinnedFreqMeds[medKey] = !pinnedFreqMeds[medKey];
+      saveToStorage();
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+        btn.className = "px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap flex items-center";
+      });
+      document.getElementById('tab-' + filter).className = "px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-medium whitespace-nowrap shadow-sm flex items-center";
+      render();
+    }
+
+    function getGroupedMedicines() {
+      const groups = {};
+
+      inventory.forEach(item => {
+        const key = `${item.name.toLowerCase()}__${item.category}`;
+        if (!groups[key]) {
+          groups[key] = {
+            key: key,
+            name: item.name,
+            category: item.category,
+            unitType: item.unitType,
+            minQty: item.minQty,
+            expiryAlertDays: item.expiryAlertDays,
+            batches: [],
+            totalQty: 0,
+            latestExpiry: null,
+            earliestExpiry: null,
+            hasExpiry: false
+          };
+        }
+        groups[key].batches.push(item);
+        groups[key].totalQty += item.qty;
+
+        if (item.expiry) {
+          groups[key].hasExpiry = true;
+          const exp = new Date(item.expiry);
+          if (!groups[key].latestExpiry || exp > new Date(groups[key].latestExpiry)) {
+            groups[key].latestExpiry = item.expiry;
+          }
+          if (!groups[key].earliestExpiry || exp < new Date(groups[key].earliestExpiry)) {
+            groups[key].earliestExpiry = item.expiry;
+          }
+        }
+      });
+
+      const list = Object.values(groups);
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      return list;
+    }
+
+    function isGroupInRefill(group) {
+      const today = new Date();
+      if (manualRefills[group.key]) return true;
+
+      if (group.unitType === 'Tablets' && group.minQty > 0 && group.totalQty <= group.minQty) {
+        return true;
+      }
+
+      if (group.hasExpiry && group.latestExpiry) {
+        const latestExp = new Date(group.latestExpiry);
+        const daysToLatest = Math.ceil((latestExp - today) / (1000 * 60 * 60 * 24));
+        if (daysToLatest <= group.expiryAlertDays) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function formatDisplayExpiry(dateStr) {
+      if (!dateStr) return 'No Expiry';
+      const parts = dateStr.split('-');
+      if (parts.length >= 2) {
+        const year = parts[0];
+        const monthIndex = parseInt(parts[1], 10) - 1;
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${months[monthIndex]} ${year}`;
+      }
+      return dateStr;
+    }
+
+    function render() {
+      const list = document.getElementById('medicineList');
+      const searchQuery = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+      list.innerHTML = '';
+
+      const grouped = getGroupedMedicines();
+      const today = new Date();
+
+      // Count Refills & Frequent items for tab badges
+      const totalRefillCount = grouped.filter(g => isGroupInRefill(g)).length;
+      const refillBadge = document.getElementById('refillBadgeCount');
+      if (refillBadge) {
+        if (totalRefillCount > 0) {
+          refillBadge.innerText = totalRefillCount;
+          refillBadge.classList.remove('hidden');
+        } else {
+          refillBadge.classList.add('hidden');
+        }
+      }
+
+      const totalFreqCount = grouped.filter(g => !!pinnedFreqMeds[g.key]).length;
+      const freqBadge = document.getElementById('freqBadgeCount');
+      if (freqBadge) {
+        if (totalFreqCount > 0) {
+          freqBadge.innerText = totalFreqCount;
+          freqBadge.classList.remove('hidden');
+        } else {
+          freqBadge.classList.add('hidden');
+        }
+      }
+
+      let displayGroups = grouped;
+
+      if (searchQuery) {
+        displayGroups = displayGroups.filter(g => g.name.toLowerCase().includes(searchQuery));
+      }
+
+      // Filter logic
+      if (currentFilter === 'freq') {
+        displayGroups = displayGroups.filter(g => !!pinnedFreqMeds[g.key]);
+      } else if (currentFilter === 'refill') {
+        displayGroups = displayGroups.filter(g => isGroupInRefill(g));
+      } else if (currentFilter !== 'all') {
+        displayGroups = displayGroups.filter(g => g.category === currentFilter);
+      }
+
+      if (displayGroups.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-16 px-4">
+            <div class="text-4xl mb-2">📋</div>
+            <p class="text-gray-500 font-semibold text-base">No medicines found</p>
+            <p class="text-gray-400 text-xs mt-1">${currentFilter === 'freq' ? 'Pin your daily medicines with the 📌 icon to show them here.' : 'Tap the red (+) button to add your stock.'}</p>
+          </div>
+        `;
+        return;
+      }
+
+      displayGroups.forEach(group => {
+        group.batches.sort((a, b) => {
+          if (!a.expiry) return 1;
+          if (!b.expiry) return -1;
+          return new Date(a.expiry) - new Date(b.expiry);
+        });
+
+        const isRefillActive = isGroupInRefill(group);
+        const isManuallyToggled = !!manualRefills[group.key];
+        const isPinned = !!pinnedFreqMeds[group.key];
+
+        let overallBadge = '';
+        if (isManuallyToggled) {
+          overallBadge = `<span class="bg-blue-100 text-blue-800 text-[11px] px-2.5 py-1 rounded-full font-bold">📌 Pinned for Refill</span>`;
+        } else if (group.hasExpiry && group.latestExpiry) {
+          const latestExp = new Date(group.latestExpiry);
+          const daysToLatest = Math.ceil((latestExp - today) / (1000 * 60 * 60 * 24));
+          if (daysToLatest <= 0) {
+            overallBadge = `<span class="bg-red-100 text-red-700 text-[11px] px-2.5 py-1 rounded-full font-bold">Expired</span>`;
+          } else if (daysToLatest <= group.expiryAlertDays) {
+            overallBadge = `<span class="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-1 rounded-full font-bold">⚠️ Expiring Soon</span>`;
+          } else if (group.unitType === 'Tablets' && group.totalQty <= group.minQty) {
+            overallBadge = `<span class="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-1 rounded-full font-bold">⚠️ Low Stock</span>`;
+          } else {
+            overallBadge = `<span class="bg-emerald-100 text-emerald-700 text-[11px] px-2.5 py-1 rounded-full font-bold">Stock OK</span>`;
+          }
+        } else if (group.unitType === 'Tablets' && group.totalQty <= group.minQty) {
+          overallBadge = `<span class="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-1 rounded-full font-bold">⚠️ Low Stock</span>`;
+        } else {
+          overallBadge = `<span class="bg-emerald-100 text-emerald-700 text-[11px] px-2.5 py-1 rounded-full font-bold">Stock OK</span>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = `bg-white p-4 rounded-2xl shadow-sm mb-3.5 border transition-all ${isPinned ? 'ring-2 ring-blue-500/20 bg-blue-50/10' : ''} ${isRefillActive ? 'border-amber-300' : 'border-gray-100'}`;
+
+        let batchesHTML = group.batches.map(b => {
+          let batchTag = '';
+          if (b.expiry) {
+            const bExp = new Date(b.expiry);
+            const bDays = Math.ceil((bExp - today) / (1000 * 60 * 60 * 24));
+            if (bDays <= 0) {
+              batchTag = `<span class="text-[10px] text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">Expired</span>`;
+            } else if (bDays <= b.expiryAlertDays) {
+              batchTag = `<span class="text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">${bDays}d left</span>`;
+            } else {
+              batchTag = `<span class="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">${bDays}d left</span>`;
+            }
+          } else {
+            batchTag = `<span class="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded font-medium">No Expiry</span>`;
+          }
+
+          const displayExp = formatDisplayExpiry(b.expiry);
+
+          return `
+            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+              <div class="text-xs cursor-pointer" onclick="openEditModal(${b.id})" title="Click to edit batch">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-semibold text-gray-700 font-mono">Batch: ${b.batch}</span>
+                  ${batchTag}
+                  <span class="text-blue-500 text-[10px] hover:underline">✏️</span>
+                </div>
+                <div class="text-gray-400 text-[11px] mt-0.5">${b.expiry ? 'Exp: ' + displayExp : 'Homeo lot'}</div>
+              </div>
+              
+              <!-- 1-Tap Decrement Controls per batch -->
+              <div class="flex items-center space-x-2">
+                <button onclick="updateBatchQty(${b.id}, -1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg font-bold text-base shadow-xs active:scale-95 transition">-1</button>
+                <span class="font-bold text-gray-800 min-w-[2.5rem] text-center text-sm">${b.qty}</span>
+                <button onclick="updateBatchQty(${b.id}, 1)" class="w-8 h-8 flex items-center justify-center bg-blue-50 active:bg-blue-100 text-blue-600 rounded-lg font-bold text-base shadow-xs active:scale-95 transition">+1</button>
+                <button onclick="deleteBatch(${b.id})" title="Delete batch" class="text-gray-300 hover:text-red-500 pl-1 text-sm">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        const firstBatchId = group.batches[0]?.id;
+
+        card.innerHTML = `
+          <!-- Header with PIN tab & Clickable Name -->
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex-1 pr-2">
+              <div class="flex items-center space-x-2">
+                <!-- PIN Button to quickly toggle Freq. Med -->
+                <button onclick="togglePinFreq('${group.key}', event)" title="${isPinned ? 'Unpin from Frequent Meds' : 'Pin to Frequent Meds'}" class="p-1 rounded-lg transition ${isPinned ? 'bg-amber-100 text-amber-600 scale-110' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+                  </svg>
+                </button>
+
+                <h3 onclick="openEditModal(${firstBatchId})" class="font-bold text-base text-gray-900 leading-tight cursor-pointer hover:text-blue-600 flex items-center space-x-1" title="Click name to edit details">
+                  <span>${group.name}</span>
+                  <span class="text-xs text-gray-400 font-normal">✏️</span>
+                </h3>
+                <span class="text-[11px] bg-gray-100 text-gray-600 font-medium px-2 py-0.5 rounded">${group.category}</span>
+                ${isPinned ? '<span class="text-[10px] bg-amber-50 text-amber-700 font-semibold px-1.5 py-0.5 rounded border border-amber-200">Daily/Freq</span>' : ''}
+              </div>
+              <p class="text-xs text-gray-500 mt-1 pl-6">
+                Total Stock: <strong class="text-gray-800">${group.totalQty} ${group.unitType}</strong> 
+                ${group.batches.length > 1 ? `• <span class="text-blue-600 font-medium">${group.batches.length} Batches</span>` : ''}
+              </p>
+            </div>
+            ${overallBadge}
+          </div>
+
+          <!-- Batches List -->
+          <div class="mt-2.5 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Batches (Tap to Edit Details)</div>
+            ${batchesHTML}
+          </div>
+
+          <!-- Bottom Action: Refill Toggle Switch at will -->
+          <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-100 text-xs">
+            <span class="text-gray-600 font-medium flex items-center">
+              🏥 Bring from Pharmacy:
+            </span>
+            <button onclick="toggleManualRefill('${group.key}')" class="px-3 py-1 rounded-lg font-semibold flex items-center space-x-1.5 transition ${isRefillActive ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+              <span>${isRefillActive ? '✓ Added to Refill List' : '+ Add to Refill List'}</span>
+            </button>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    // Export to Excel (.xlsx) with clean layout
+    function exportToExcel() {
+      if (inventory.length === 0) {
+        alert("Inventory is empty. Add some medicines first!");
+        return;
+      }
+
+      const today = new Date();
+      const grouped = getGroupedMedicines();
+
+      // 1. All Medicines Detailed List
+      const allRows = [];
+      inventory.forEach(item => {
+        const medKey = `${item.name.toLowerCase()}__${item.category}`;
+        const isRefill = manualRefills[medKey] || (item.unitType === 'Tablets' && item.minQty > 0 && item.qty <= item.minQty);
+        const isFreq = !!pinnedFreqMeds[medKey];
+        
+        let daysLeft = "No Expiry";
+        let status = "OK";
+
+        if (item.expiry) {
+          const exp = new Date(item.expiry);
+          const dLeft = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+          daysLeft = dLeft;
+          if (dLeft <= 0) status = "Expired";
+          else if (dLeft <= item.expiryAlertDays) status = "Expiring Soon";
+        }
+
+        allRows.push({
+          "Medicine Name": item.name,
+          "Category": item.category,
+          "Unit Type": item.unitType,
+          "Batch No": item.batch,
+          "Current Quantity": item.qty,
+          "Expiry (Month/Year)": formatDisplayExpiry(item.expiry),
+          "Days Until Expiry": daysLeft,
+          "Status": status,
+          "Daily/Freq Med": isFreq ? "YES" : "No",
+          "Refill Needed": isRefill ? "YES" : "No"
+        });
+      });
+
+      // 2. Pharmacy Refill Checklist Sheet
+      const refillRows = [];
+      grouped.filter(g => isGroupInRefill(g)).forEach(g => {
+        refillRows.push({
+          "Medicine Name": g.name,
+          "Category": g.category,
+          "Unit Type": g.unitType,
+          "Current Total Stock": g.totalQty,
+          "Latest Expiry": formatDisplayExpiry(g.latestExpiry),
+          "Reason / Trigger": manualRefills[g.key] ? "Pinned Manually" : (g.unitType === 'Tablets' && g.totalQty <= g.minQty ? "Low Stock" : "Expiring Soon")
+        });
+      });
+
+      const wb = XLSX.utils.book_new();
+
+      const wsRefill = XLSX.utils.json_to_sheet(refillRows.length > 0 ? refillRows : [{"Message": "No medicines currently marked for refill."}]);
+      const wsAll = XLSX.utils.json_to_sheet(allRows);
+
+      const autoFit = (ws, rows) => {
+        if (!rows || rows.length === 0) return;
+        const keys = Object.keys(rows[0]);
+        ws['!cols'] = keys.map(k => ({ wch: Math.max(k.length + 3, 16) }));
+      };
+
+      autoFit(wsAll, allRows);
+      if (refillRows.length > 0) autoFit(wsRefill, refillRows);
+
+      XLSX.utils.book_append_sheet(wb, wsRefill, "Refill List");
+      XLSX.utils.book_append_sheet(wb, wsAll, "Full Inventory");
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `RJ_Med_Inventory_${dateStr}.xlsx`);
+    }
+
+    function exportJSONBackup() {
+      const exportObject = {
+        inventory: inventory,
+        manualRefills: manualRefills,
+        pinnedFreqMeds: pinnedFreqMeds,
+        exportDate: new Date().toISOString()
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `RJ_Med_Inventory_RawBackup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    render();
+  </script>
+</body>
+</html>
