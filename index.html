@@ -8,7 +8,6 @@
   <meta name="apple-mobile-web-app-title" content="RJ Meds">
   <title>RJ Med Inventory</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS library for direct client-side Excel (.xlsx) export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
@@ -23,7 +22,7 @@
 </head>
 <body class="bg-gray-100 text-gray-900 pb-28">
 
-  <!-- Fullscreen Activation Paywall Modal (Shows until valid key is activated) -->
+  <!-- Fullscreen Activation Modal -->
   <div id="activationLockOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
     <div class="bg-white w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4 border border-slate-100 text-center">
       <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-inner">
@@ -61,46 +60,58 @@
       <p class="text-[10px] text-blue-100 uppercase tracking-wider font-semibold">Personal Medicine Batch Tracker</p>
     </div>
     
-    <!-- Export Dropdown Trigger -->
-    <div class="relative">
-      <button id="downloadDropdownBtn" onclick="toggleExportMenu(event)" class="bg-blue-700/80 hover:bg-blue-800 active:bg-blue-900 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm border border-blue-500/30">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        <span>Export</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-70" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-        </svg>
+    <div class="flex items-center space-x-2">
+      <!-- Camera Scan Button in Header -->
+      <button onclick="triggerCameraCapture()" class="bg-blue-500 hover:bg-blue-400 text-white px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-sm border border-blue-400/40">
+        <span>📷</span>
+        <span class="hidden sm:inline">AI Scan</span>
       </button>
 
-      <!-- Dropdown Menu -->
-      <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl py-2 z-50 border border-gray-100 text-gray-800 text-xs">
-        <button onclick="exportToExcel(); closeExportMenu();" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 flex items-center space-x-2.5 text-emerald-700 font-semibold border-b border-gray-100">
-          <span class="text-base">📊</span>
-          <div>
-            <div>Excel Sheet (.xlsx)</div>
-            <div class="text-[10px] text-gray-400 font-normal">Full list + Refill sheet</div>
-          </div>
+      <!-- Export Dropdown -->
+      <div class="relative">
+        <button id="downloadDropdownBtn" onclick="toggleExportMenu(event)" class="bg-blue-700/80 hover:bg-blue-800 active:bg-blue-900 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm border border-blue-500/30">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Export</span>
         </button>
-        <button onclick="exportJSONBackup(); closeExportMenu();" class="w-full text-left px-4 py-2.5 hover:bg-blue-50 flex items-center space-x-2.5 text-blue-700 font-semibold">
-          <span class="text-base">💾</span>
-          <div>
-            <div>JSON Raw Backup</div>
-            <div class="text-[10px] text-gray-400 font-normal">Full database restore format</div>
-          </div>
-        </button>
+
+        <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl py-2 z-50 border border-gray-100 text-gray-800 text-xs">
+          <button onclick="exportToExcel(); closeExportMenu();" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 flex items-center space-x-2.5 text-emerald-700 font-semibold border-b border-gray-100">
+            <span class="text-base">📊</span>
+            <div>
+              <div>Excel Sheet (.xlsx)</div>
+              <div class="text-[10px] text-gray-400 font-normal">Full list + Refill sheet</div>
+            </div>
+          </button>
+          <button onclick="exportJSONBackup(); closeExportMenu();" class="w-full text-left px-4 py-2.5 hover:bg-blue-50 flex items-center space-x-2.5 text-blue-700 font-semibold">
+            <span class="text-base">💾</span>
+            <div>
+              <div>JSON Raw Backup</div>
+              <div class="text-[10px] text-gray-400 font-normal">Full database restore format</div>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
+  <!-- Hidden Camera Input for AI Scanning -->
+  <input type="file" id="cameraFileInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageScanned(event)">
+
+  <!-- AI Scanning Overlay Spinner -->
+  <div id="aiScanLoader" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-4 text-white text-center">
+    <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-400 border-t-transparent mb-3"></div>
+    <div class="font-bold text-base">AI Vision Scanning Medicine...</div>
+    <p class="text-xs text-slate-300 mt-1 max-w-xs">Reading strip/bottle name, batch number, and expiry date.</p>
+  </div>
+
   <!-- Search & Filter Tab Bar -->
   <div class="bg-white border-b sticky top-[62px] z-20 shadow-sm">
-    <!-- Search Bar -->
     <div class="px-3 pt-2.5 pb-1">
       <input type="text" id="searchInput" oninput="render()" placeholder="🔍 Quick search medicine..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-500">
     </div>
     
-    <!-- Tab Bar -->
     <div class="p-3 pt-1.5 flex space-x-2 overflow-x-auto text-sm">
       <button onclick="setFilter('all')" id="tab-all" class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-medium whitespace-nowrap shadow-sm">All (A-Z)</button>
       <button onclick="setFilter('freq')" id="tab-freq" class="px-3.5 py-1.5 rounded-full bg-gray-100 text-gray-700 font-medium whitespace-nowrap flex items-center space-x-1">
@@ -118,12 +129,15 @@
   </div>
 
   <!-- Medicine List -->
-  <main class="p-3 max-w-lg mx-auto" id="medicineList">
-    <!-- Alphabetically sorted medicine cards will render here -->
-  </main>
+  <main class="p-3 max-w-lg mx-auto" id="medicineList"></main>
 
-  <!-- Large Highlighted Floating Action Button (FAB) for Adding Medicine -->
-  <div class="fixed bottom-6 right-6 z-40">
+  <!-- Large Floating Action Button -->
+  <div class="fixed bottom-6 right-6 z-40 flex flex-col items-center space-y-3">
+    <!-- Quick Scan Floating Action -->
+    <button onclick="triggerCameraCapture()" title="Scan Strip/Bottle" class="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white transition active:scale-95 text-xl">
+      📷
+    </button>
+    <!-- Add Button -->
     <button onclick="openAddModal()" class="fab-btn w-16 h-16 bg-red-600 hover:bg-red-700 active:scale-90 text-white rounded-full flex items-center justify-center shadow-2xl shadow-red-500/50 border-4 border-white transition focus:outline-none">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -137,10 +151,16 @@
       <div class="flex justify-between items-center border-b pb-3">
         <div>
           <h2 id="modalTitle" class="text-lg font-bold text-gray-800">Add New Medicine</h2>
-          <p id="modalSubtitle" class="text-xs text-gray-500">Same name will link batches together</p>
+          <p id="modalSubtitle" class="text-xs text-gray-500">Fill batch details to add to inventory</p>
         </div>
         <button onclick="toggleModal(false)" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
       </div>
+
+      <!-- Quick Scan Button inside Modal -->
+      <button type="button" onclick="triggerCameraCapture()" class="w-full bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-semibold py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 transition">
+        <span>📷</span>
+        <span>Scan Medicine Strip / Bottle with AI</span>
+      </button>
 
       <form id="medForm" onsubmit="saveMedicineForm(event)" class="space-y-3 text-sm">
         <input type="hidden" id="editEntryId" value="">
@@ -233,7 +253,6 @@
   </div>
 
   <script>
-    // Validation Worker Endpoint
     const WORKER_ACTIVATION_URL = "https://rj-medlicense-validator.rehanj4.workers.dev";
 
     let inventory = JSON.parse(localStorage.getItem('rj_med_inventory') || '[]');
@@ -241,7 +260,6 @@
     let pinnedFreqMeds = JSON.parse(localStorage.getItem('rj_pinned_freq_meds') || '{}');
     let currentFilter = 'all';
 
-    // Device ID & License Management
     function getOrCreateDeviceId() {
       let devId = localStorage.getItem('rj_device_id');
       if (!devId) {
@@ -298,7 +316,7 @@
           errorDiv.classList.remove('hidden');
         }
       } catch (err) {
-        errorDiv.innerText = "Connection error. Please check your internet connection and try again.";
+        errorDiv.innerText = "Connection error. Please check your internet connection.";
         errorDiv.classList.remove('hidden');
       } finally {
         btnSpinner.classList.add('hidden');
@@ -306,19 +324,66 @@
       }
     }
 
+    // AI Camera Scanning Handler
+    function triggerCameraCapture() {
+      document.getElementById('cameraFileInput').click();
+    }
+
+    async function handleImageScanned(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const loader = document.getElementById('aiScanLoader');
+      loader.classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.onload = async function(evt) {
+        const base64Data = evt.target.result;
+
+        try {
+          const res = await fetch(`${WORKER_ACTIVATION_URL}/api/scan-medicine`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64Data })
+          });
+
+          const json = await res.json();
+
+          if (json.success && json.data) {
+            const data = json.data;
+            openAddModal();
+
+            if (data.name) document.getElementById('name').value = data.name;
+            if (data.category) document.getElementById('category').value = data.category;
+            if (data.unitType) document.getElementById('unitType').value = data.unitType;
+            if (data.batch) document.getElementById('batch').value = data.batch;
+            if (data.expiryMonth) document.getElementById('expiryMonth').value = data.expiryMonth;
+
+            handleCategoryAndUnitChange();
+          } else {
+            alert("Could not read text clearly. Please try again with clear lighting or enter details manually.");
+          }
+        } catch (err) {
+          alert("Scan failed. Please check internet connection.");
+        } finally {
+          loader.classList.add('hidden');
+          e.target.value = ""; // Reset file input
+        }
+      };
+
+      reader.readAsDataURL(file);
+    }
+
     function toggleExportMenu(e) {
       e.stopPropagation();
-      const menu = document.getElementById('exportMenu');
-      menu.classList.toggle('hidden');
+      document.getElementById('exportMenu').classList.toggle('hidden');
     }
 
     function closeExportMenu() {
       document.getElementById('exportMenu').classList.add('hidden');
     }
 
-    document.addEventListener('click', () => {
-      closeExportMenu();
-    });
+    document.addEventListener('click', closeExportMenu);
 
     function handleCategoryAndUnitChange() {
       const category = document.getElementById('category').value;
@@ -360,8 +425,7 @@
       }
       const strips = parseInt(document.getElementById('numStrips').value) || 0;
       const perStrip = parseInt(document.getElementById('tabsPerStrip').value) || 0;
-      const total = strips * perStrip;
-      document.getElementById('calculatedTotalDisplay').innerText = total;
+      document.getElementById('calculatedTotalDisplay').innerText = strips * perStrip;
     }
 
     function overrideTabletCount(val) {
@@ -436,24 +500,14 @@
       const category = document.getElementById('category').value;
       const monthVal = document.getElementById('expiryMonth').value;
 
-      let standardExpiry = null;
-      if (monthVal) {
-        standardExpiry = `${monthVal}-01`;
-      }
-
-      let totalUnits = 0;
-      let stripsCount = null;
-      let perStripCount = null;
+      let standardExpiry = monthVal ? `${monthVal}-01` : null;
+      let totalUnits = 0, stripsCount = null, perStripCount = null;
 
       if (unitType === 'Tablets') {
         const manualVal = document.getElementById('manualTabletOverride').value;
         stripsCount = parseInt(document.getElementById('numStrips').value) || 0;
         perStripCount = parseInt(document.getElementById('tabsPerStrip').value) || 0;
-        if (manualVal !== "") {
-          totalUnits = parseInt(manualVal) || 0;
-        } else {
-          totalUnits = stripsCount * perStripCount;
-        }
+        totalUnits = manualVal !== "" ? (parseInt(manualVal) || 0) : (stripsCount * perStripCount);
       } else {
         totalUnits = parseInt(document.getElementById('directQty').value) || 0;
       }
@@ -478,7 +532,7 @@
           inventory[idx].expiryAlertDays = expiryAlertVal;
         }
       } else {
-        const newEntry = {
+        inventory.unshift({
           id: Date.now(),
           name: medicineName,
           category: category,
@@ -490,8 +544,7 @@
           expiry: standardExpiry,
           minQty: minQtyVal,
           expiryAlertDays: expiryAlertVal
-        };
-        inventory.unshift(newEntry);
+        });
       }
 
       saveToStorage();
@@ -536,7 +589,6 @@
 
     function getGroupedMedicines() {
       const groups = {};
-
       inventory.forEach(item => {
         const key = `${item.name.toLowerCase()}__${item.category}`;
         if (!groups[key]) {
@@ -568,28 +620,18 @@
           }
         }
       });
-
-      const list = Object.values(groups);
-      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-      return list;
+      return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     }
 
     function isGroupInRefill(group) {
       const today = new Date();
       if (manualRefills[group.key]) return true;
-
-      if (group.unitType === 'Tablets' && group.minQty > 0 && group.totalQty <= group.minQty) {
-        return true;
-      }
-
+      if (group.unitType === 'Tablets' && group.minQty > 0 && group.totalQty <= group.minQty) return true;
       if (group.hasExpiry && group.latestExpiry) {
         const latestExp = new Date(group.latestExpiry);
         const daysToLatest = Math.ceil((latestExp - today) / (1000 * 60 * 60 * 24));
-        if (daysToLatest <= group.expiryAlertDays) {
-          return true;
-        }
+        if (daysToLatest <= group.expiryAlertDays) return true;
       }
-
       return false;
     }
 
@@ -597,10 +639,8 @@
       if (!dateStr) return 'No Expiry';
       const parts = dateStr.split('-');
       if (parts.length >= 2) {
-        const year = parts[0];
-        const monthIndex = parseInt(parts[1], 10) - 1;
         const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        return `${months[monthIndex]} ${year}`;
+        return `${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
       }
       return dateStr;
     }
@@ -616,45 +656,29 @@
       const totalRefillCount = grouped.filter(g => isGroupInRefill(g)).length;
       const refillBadge = document.getElementById('refillBadgeCount');
       if (refillBadge) {
-        if (totalRefillCount > 0) {
-          refillBadge.innerText = totalRefillCount;
-          refillBadge.classList.remove('hidden');
-        } else {
-          refillBadge.classList.add('hidden');
-        }
+        refillBadge.innerText = totalRefillCount;
+        refillBadge.classList.toggle('hidden', totalRefillCount === 0);
       }
 
       const totalFreqCount = grouped.filter(g => !!pinnedFreqMeds[g.key]).length;
       const freqBadge = document.getElementById('freqBadgeCount');
       if (freqBadge) {
-        if (totalFreqCount > 0) {
-          freqBadge.innerText = totalFreqCount;
-          freqBadge.classList.remove('hidden');
-        } else {
-          freqBadge.classList.add('hidden');
-        }
+        freqBadge.innerText = totalFreqCount;
+        freqBadge.classList.toggle('hidden', totalFreqCount === 0);
       }
 
       let displayGroups = grouped;
-
-      if (searchQuery) {
-        displayGroups = displayGroups.filter(g => g.name.toLowerCase().includes(searchQuery));
-      }
-
-      if (currentFilter === 'freq') {
-        displayGroups = displayGroups.filter(g => !!pinnedFreqMeds[g.key]);
-      } else if (currentFilter === 'refill') {
-        displayGroups = displayGroups.filter(g => isGroupInRefill(g));
-      } else if (currentFilter !== 'all') {
-        displayGroups = displayGroups.filter(g => g.category === currentFilter);
-      }
+      if (searchQuery) displayGroups = displayGroups.filter(g => g.name.toLowerCase().includes(searchQuery));
+      if (currentFilter === 'freq') displayGroups = displayGroups.filter(g => !!pinnedFreqMeds[g.key]);
+      else if (currentFilter === 'refill') displayGroups = displayGroups.filter(g => isGroupInRefill(g));
+      else if (currentFilter !== 'all') displayGroups = displayGroups.filter(g => g.category === currentFilter);
 
       if (displayGroups.length === 0) {
         list.innerHTML = `
           <div class="text-center py-16 px-4">
             <div class="text-4xl mb-2">📋</div>
             <p class="text-gray-500 font-semibold text-base">No medicines found</p>
-            <p class="text-gray-400 text-xs mt-1">${currentFilter === 'freq' ? 'Pin your daily medicines with the 📌 icon to show them here.' : 'Tap the red (+) button to add your stock.'}</p>
+            <p class="text-gray-400 text-xs mt-1">Tap 📷 to scan strip/bottle or (+) to add manually.</p>
           </div>
         `;
         return;
@@ -715,21 +739,19 @@
 
           return `
             <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <div class="text-xs cursor-pointer" onclick="openEditModal(${b.id})" title="Click to edit batch">
+              <div class="text-xs cursor-pointer" onclick="openEditModal(${b.id})">
                 <div class="flex items-center space-x-1.5">
                   <span class="font-semibold text-gray-700 font-mono">Batch: ${b.batch}</span>
                   ${batchTag}
-                  <span class="text-blue-500 text-[10px] hover:underline">✏️</span>
+                  <span class="text-blue-500 text-[10px]">✏️</span>
                 </div>
                 <div class="text-gray-400 text-[11px] mt-0.5">${b.expiry ? 'Exp: ' + displayExp : 'Homeo lot'}</div>
               </div>
-              
-              <!-- 1-Tap Decrement Controls per batch -->
               <div class="flex items-center space-x-2">
                 <button onclick="updateBatchQty(${b.id}, -1)" class="w-8 h-8 flex items-center justify-center bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg font-bold text-base shadow-xs active:scale-95 transition">-1</button>
                 <span class="font-bold text-gray-800 min-w-[2.5rem] text-center text-sm">${b.qty}</span>
                 <button onclick="updateBatchQty(${b.id}, 1)" class="w-8 h-8 flex items-center justify-center bg-blue-50 active:bg-blue-100 text-blue-600 rounded-lg font-bold text-base shadow-xs active:scale-95 transition">+1</button>
-                <button onclick="deleteBatch(${b.id})" title="Delete batch" class="text-gray-300 hover:text-red-500 pl-1 text-sm">✕</button>
+                <button onclick="deleteBatch(${b.id})" class="text-gray-300 hover:text-red-500 pl-1 text-sm">✕</button>
               </div>
             </div>
           `;
@@ -738,18 +760,15 @@
         const firstBatchId = group.batches[0]?.id;
 
         card.innerHTML = `
-          <!-- Header with PIN tab & Clickable Name -->
           <div class="flex justify-between items-start mb-2">
             <div class="flex-1 pr-2">
               <div class="flex items-center space-x-2">
-                <!-- PIN Button to quickly toggle Freq. Med -->
-                <button onclick="togglePinFreq('${group.key}', event)" title="${isPinned ? 'Unpin from Frequent Meds' : 'Pin to Frequent Meds'}" class="p-1 rounded-lg transition ${isPinned ? 'bg-amber-100 text-amber-600 scale-110' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}">
+                <button onclick="togglePinFreq('${group.key}', event)" class="p-1 rounded-lg transition ${isPinned ? 'bg-amber-100 text-amber-600 scale-110' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current" viewBox="0 0 24 24">
                     <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
                   </svg>
                 </button>
-
-                <h3 onclick="openEditModal(${firstBatchId})" class="font-bold text-base text-gray-900 leading-tight cursor-pointer hover:text-blue-600 flex items-center space-x-1" title="Click name to edit details">
+                <h3 onclick="openEditModal(${firstBatchId})" class="font-bold text-base text-gray-900 leading-tight cursor-pointer hover:text-blue-600 flex items-center space-x-1">
                   <span>${group.name}</span>
                   <span class="text-xs text-gray-400 font-normal">✏️</span>
                 </h3>
@@ -764,13 +783,11 @@
             ${overallBadge}
           </div>
 
-          <!-- Batches List -->
           <div class="mt-2.5 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
             <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Batches (Tap to Edit Details)</div>
             ${batchesHTML}
           </div>
 
-          <!-- Bottom Actions: Refill Switch -->
           <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-100 text-xs">
             <span class="text-gray-600 font-medium flex items-center">
               🏥 Bring from Pharmacy:
@@ -792,8 +809,8 @@
 
       const today = new Date();
       const grouped = getGroupedMedicines();
-
       const allRows = [];
+
       inventory.forEach(item => {
         const medKey = `${item.name.toLowerCase()}__${item.category}`;
         const isRefill = manualRefills[medKey] || (item.unitType === 'Tablets' && item.minQty > 0 && item.qty <= item.minQty);
@@ -837,7 +854,6 @@
       });
 
       const wb = XLSX.utils.book_new();
-
       const wsRefill = XLSX.utils.json_to_sheet(refillRows.length > 0 ? refillRows : [{"Message": "No medicines currently marked for refill."}]);
       const wsAll = XLSX.utils.json_to_sheet(allRows);
 
@@ -853,8 +869,7 @@
       XLSX.utils.book_append_sheet(wb, wsRefill, "Refill List");
       XLSX.utils.book_append_sheet(wb, wsAll, "Full Inventory");
 
-      const dateStr = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `RJ_Med_Inventory_${dateStr}.xlsx`);
+      XLSX.writeFile(wb, `RJ_Med_Inventory_${new Date().toISOString().slice(0, 10)}.xlsx`);
     }
 
     function exportJSONBackup() {
@@ -873,7 +888,6 @@
       downloadAnchor.remove();
     }
 
-    // Initialize check
     checkActivationStatus();
     render();
   </script>
